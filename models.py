@@ -11,35 +11,35 @@ from dataclasses import dataclass
 
 @dataclass
 class Anime:
-    id: int
-    title: str
-    year: str
-    seasons: int
-    genre: Genre
-    rating: float
-    rewatch_value: int
-    owned: bool
-    manga: Manga
-    notes: str
+    id: int = 0
+    title: str = ""
+    year: str = ""
+    seasons: int = 0
+    genre: Genre = None
+    rating: float = 0.0
+    rewatch_value: int = 0
+    owned: bool = False
+    manga: Manga = None
+    notes: str = ""
 
 
 @dataclass
 class Manga:
-    id: int
-    title: str
-    author: str
-    illustrator: str
-    year: str
-    chapters: int
-    genre: Genre
-    rating: float
-    owned: bool
-    anime: Anime
-    notes: str
+    id: int = 0
+    title: str = ""
+    author: str = ""
+    illustrator: str = ""
+    year: str = ""
+    chapters: int = 0
+    genre: Genre = None
+    rating: float = 0.0
+    owned: bool = False
+    anime: Anime = None
+    notes: str = ""
 
 
 @dataclass
 class Genre:
-    id: int
-    name: str
+    id: int = 0
+    name: str = ""
 

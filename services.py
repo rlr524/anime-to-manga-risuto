@@ -15,3 +15,248 @@ from typing import Any, List, Optional
 
 db = Database()
 conn = db.connect()
+
+def make_genre(row: Any) -> Genre:
+    """
+    Creates a new Genre instance given input from a SQL query
+    :param row: A parameter of type Any that is passed to the initializer of a Genre instance
+    :return: An instance of the Genre class
+    """
+    return Genre(row["genre_id"], row["name"])
+
+
+def make_anime(row: Any) -> Anime:
+    """
+    Creates a new Anime instance given input from a SQL query
+    :param row: A parameter of type Any that is passed to the initializer of an Anime instance
+    :return: An instance of the Anime class
+    """
+    return Anime(row["anime_id"], row["title"], row["year"], row["seasons"], make_genre(row), row["rating"],
+                 row["rewatch_value"], row["owned"], row["manga_id"], row["notes"])
+
+
+def make_manga(row: Any) -> Manga:
+    """
+    Creates a new Manga instance given input from a SQL query
+    :param row: A parameter of type Any that is passed to the initializer of a Manga instance
+    :return: An instance of the Manga class
+    """
+    return Manga(row["manga_id"], row["title"], row["author"], row["illustrator"], row["year"], row["chapters"],
+                 make_genre(row), row["rating"], row["owned"], row["anime_id"], row["notes"])
+
+
+def make_anime_list(anime_results: Any) -> List[Anime]:
+    """
+    Creates a List of Anime instances given input from a SQL query
+    :param anime_results: A parameter of type Any that represents a List of anime rows from a DB query
+    :return: A List of instances of the Anime class
+    """
+    anime: List[Anime] = []
+    for r in anime_results:
+        anime.append(make_anime(r))
+    return anime
+
+
+def make_manga_list(manga_results: Any) -> List[Manga]:
+    """
+    Creates a List of Manga instances given input from a SQL query
+    :param manga_results: A parameter of type Any that represents a List of manga rows from a DB query
+    :return: A List of instances of the Manga class
+    """
+    mangas: List[Manga] = []
+    for r in manga_results:
+        mangas.append(make_manga(r))
+    return mangas
+
+
+def get_anime(anime_id: int) -> Optional[Anime]:
+    """
+    Get a single anime given an anime's id
+    :param anime_id: An int representing the id of an anime
+    :return: An Optional of an Anime object or None of the anime_id doesn't exist
+    """
+    q = '''SELECT a.anime_id, a.title, a.year, a.seasons, a.genre_id, a.rating, a.rewatch_value, a.owned, 
+                  a.manga_id, a.notes
+           FROM animes a join genres g ON g.genre_id = a.genre_id
+           WHERE a.anime_id = ?'''
+    with closing(conn.cursor()) as c:
+        c.execute(q, (anime_id,))
+        anime_row: Any = c.fetchone()
+        if anime_row:
+            return make_anime(anime_row)
+        else:
+            return None
+
+
+def get_manga(manga_id: int) -> Optional[Manga]:
+    """
+    Get a single manga given a manga's id
+    :param manga_id: An int representing the id of a manga
+    :return: An Optional of a Manga object or None of the manga_id doesn't exist
+    """
+    q = '''SELECT m.manga_id, m.title, m.author, m.illustrator, m.year, m.chapters, m.genre_id, m.rating, m.owned,
+                  m.anime_id, m.notes
+           FROM mangas m join genres g ON g.genre_id = m.genre_id
+           WHERE m.manga_id = ?'''
+    with closing(conn.cursor()) as c:
+        c.execute(q, (manga_id,))
+        manga_row: Any = c.fetchone()
+        if manga_row:
+            return make_manga(manga_row)
+        else:
+            return None
+
+
+
+
+
+
+def get_all_dramas() -> List[Drama]:
+    """
+    Get all dramas in the database
+    :return: A List of Drama objects representing all Dramas where the deleted flag is not True
+    Note: This can be debated as to if the logic for the deleted flag should be applied here or in the UI. For the
+    sake of keeping the assignment fairly simple, I applied it here.
+    """
+    q = '''SELECT d.drama_id, d.title, d.year, d.episodes, d.genre_id, g.name, d.deleted 
+           FROM dramas d JOIN genres g ON g.genre_id = d.genre_id
+           WHERE d.deleted <> true'''
+    with closing(conn.cursor()) as c:
+        c.execute(q)
+        results = c.fetchall()
+
+    dramas: List[Drama] = []
+    for r in results:
+        dramas.append(make_drama(r))
+    return  dramas
+
+
+def get_all_genres() -> List[Genre]:
+    """
+    Get all genres in the database
+    :return: A list of Genre objects
+    """
+    q = '''SELECT genre_id, name FROM genres '''
+    with closing(conn.cursor()) as c:
+        c.execute(q)
+        results = c.fetchall()
+
+    genres: List[Genre] = []
+    for r in results:
+        genres.append(make_genre(r))
+    return genres
+
+
+def get_genre(genre_id: int) -> Optional[Genre]:
+    """
+    Get a genre given a specific genre id
+    :param genre_id: An int value representing the genre_id of a Genre object
+    :return: An optional of a Genre object, or None if the genre_id does not exist
+    """
+    q = '''SELECT genre_id, name FROM genres WHERE genre_id = ?'''
+    with closing(conn.cursor()) as c:
+        c.execute(q, (genre_id,))
+        genre_row: Any = c.fetchone()
+        if genre_row:
+            return make_genre(genre_row)
+        else:
+            return None
+
+
+def get_dramas_by_genre(genre_id: int) -> List[Drama]:
+    """
+    Gets all dramas given a specific genre
+    :param genre_id: An int value representing the genre_id of a Genre object
+    :return: A List of Drama objects
+    """
+    q = '''SELECT d.drama_id, d.title, d.year, d.episodes, d.genre_id, g.name, d.deleted
+           FROM dramas d JOIN genres g ON g.genre_id = d.genre_id
+           WHERE d.genre_id = ? AND d.deleted <> true'''
+    with closing(conn.cursor()) as c:
+        c.execute(q, (genre_id,))
+        results: List[Any] = c.fetchall()
+
+    return make_drama_list(results)
+
+
+def get_dramas_by_year(year: str) -> List[Drama]:
+    """
+    Gets all dramas given a specific year
+    :param year: A string value representing a four digit year
+    :return: A List of Drama objects
+    """
+    q = '''SELECT d.drama_id, d.title, d.year, d.episodes, d.genre_id, g.name, d.deleted
+           FROM dramas d JOIN genres g ON g.genre_id = d.genre_id
+           WHERE d.year = ? AND d.deleted <> true'''
+    with closing(conn.cursor()) as c:
+        c.execute(q, (year,))
+        results: List[Any] = c.fetchall()
+
+    return make_drama_list(results)
+
+
+def add_drama(drama: Drama) -> None:
+    """
+    Add a single drama to the database. Includes validation of required fields that do not have a default value as
+    well as error handling for database transaction commit errors. This error handling is necessary on any function
+    that performs a transaction commit on the database in order to comply with ACID assurance.
+    :param drama: A Drama object to insert
+    :return: None
+    :raises: A SQLite Database error if insertion fails. If this were a production application, I would include
+    methods for this error handling in the Database class as it is specific to SQLite3.
+    """
+    # account for that the genre id is passed as an int however is evaluated as a Genre object with an id or genre_id
+    if getattr(drama, "genre", None) is None:
+        raise ValueError("drama genre id is required")
+
+    genre_value = drama.genre
+    if isinstance(genre_value, int):
+        genre_id = genre_value
+    else:
+        genre_id = getattr(genre_value, "id", None) or getattr(genre_value, "genre_id", None)
+
+    if genre_id is None:
+        raise ValueError("drama genre id is required")
+
+    if not getattr(drama, "title", None):
+        raise ValueError("drama title is required")
+    if not getattr(drama, "year", None):
+        raise ValueError("drama year is required")
+    if not getattr(drama, "episodes", None):
+        raise ValueError("drama episodes is required")
+
+    s = '''INSERT INTO dramas (title, year, episodes, genre_id, deleted) VALUES (?, ?, ?, ?, ?)'''
+    try:
+        with closing(conn.cursor()) as c:
+            c.execute(s, (drama.title, drama.year, drama.episodes, drama.genre.id, getattr(drama, "deleted", False)))
+        conn.commit()
+    except conn.DatabaseError as e:
+        try:
+            conn.rollback()
+        except conn.OperationalError:
+            logging.exception("Failed to roll back transaction after insert failure")
+        logging.exception(f"Failed to insert drama {e}")
+        raise
+
+
+def delete_drama(drama_id: int) -> None:
+    """
+    Perform a soft delete by flagging a single drama as deleted. Includes error handling for database transaction
+    commit errors. This error handling is necessary on any function that performs a transaction commit on the
+    database in order to comply with ACID assurance.
+    :param drama_id: The drama_id of the intended drama
+    :return: None
+    :raises: A Database error if insertion fails
+    """
+    s = '''UPDATE dramas SET deleted = true WHERE drama_id = ?'''
+    try:
+        with closing(conn.cursor()) as c:
+            c.execute(s, (drama_id,))
+        conn.commit()
+    except conn.DatabaseError as e:
+        try:
+            conn.rollback()
+        except conn.OperationalError:
+            logging.exception("Failed to roll back transaction after delete failure")
+        logging.exception(f"Failed to delete drama {e}")
+        raise
