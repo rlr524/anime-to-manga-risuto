@@ -9,21 +9,12 @@ services.py - All functions that interact with the database performing CRUD oper
 
 import logging
 from database import Database
-from models import Anime, Manga, Genre
+from models import Anime, Manga
 from contextlib import closing
 from typing import Any, List, Optional
 
 db = Database()
 conn = db.connect()
-
-def make_genre(row: Any) -> Genre:
-    """
-    Creates a new Genre instance given input from a SQL query
-    :param row: A parameter of type Any that is passed to the initializer of a Genre instance
-    :return: An instance of the Genre class
-    """
-    return Genre(row["genre_id"], row["name"])
-
 
 def make_anime(row: Any) -> Anime:
     """
@@ -31,8 +22,8 @@ def make_anime(row: Any) -> Anime:
     :param row: A parameter of type Any that is passed to the initializer of an Anime instance
     :return: An instance of the Anime class
     """
-    return Anime(row["anime_id"], row["title"], row["year"], row["seasons"], make_genre(row), row["rating"],
-                 row["rewatch_value"], row["owned"], row["manga_id"], row["notes"])
+    return Anime(row["anime_id"], row["title"], row["year"], row["seasons"], row["rating"],
+                 row["owned"], row["notes"])
 
 
 def make_manga(row: Any) -> Manga:
@@ -42,7 +33,7 @@ def make_manga(row: Any) -> Manga:
     :return: An instance of the Manga class
     """
     return Manga(row["manga_id"], row["title"], row["author"], row["illustrator"], row["year"], row["chapters"],
-                 make_genre(row), row["rating"], row["owned"], row["anime_id"], row["notes"])
+                 row["rating"], row["owned"], row["notes"])
 
 
 def make_anime_list(anime_results: Any) -> List[Anime]:
@@ -75,9 +66,8 @@ def get_anime(anime_id: int) -> Optional[Anime]:
     :param anime_id: An int representing the id of an anime
     :return: An Optional of an Anime object or None of the anime_id doesn't exist
     """
-    q = '''SELECT a.anime_id, a.title, a.year, a.seasons, a.genre_id, a.rating, a.rewatch_value, a.owned, 
-                  a.manga_id, a.notes
-           FROM animes a join genres g ON g.genre_id = a.genre_id
+    q = '''SELECT a.anime_id, a.title, a.year, a.seasons, a.rating, a.owned, a.notes
+           FROM animes a
            WHERE a.anime_id = ?'''
     with closing(conn.cursor()) as c:
         c.execute(q, (anime_id,))
@@ -94,9 +84,8 @@ def get_manga(manga_id: int) -> Optional[Manga]:
     :param manga_id: An int representing the id of a manga
     :return: An Optional of a Manga object or None of the manga_id doesn't exist
     """
-    q = '''SELECT m.manga_id, m.title, m.author, m.illustrator, m.year, m.chapters, m.genre_id, m.rating, m.owned,
-                  m.anime_id, m.notes
-           FROM mangas m join genres g ON g.genre_id = m.genre_id
+    q = '''SELECT m.manga_id, m.title, m.author, m.illustrator, m.year, m.chapters, m.rating, m.owned, m.notes
+           FROM mangas m
            WHERE m.manga_id = ?'''
     with closing(conn.cursor()) as c:
         c.execute(q, (manga_id,))
@@ -112,8 +101,8 @@ def get_all_anime() -> List[Anime]:
     Get all anime in the database
     :return: A List of Anime objects representing all Anime
     """
-    q = '''SELECT a.anime_id, a.title, a.year, a.seasons, a.genre_id, a.rating, a.owned 
-           FROM animes a JOIN genres g ON g.genre_id = a.genre_id'''
+    q = '''SELECT a.anime_id, a.title, a.year, a.seasons, a.rating, a.owned 
+           FROM animes a'''
 
     with closing(conn.cursor()) as c:
         c.execute(q)
@@ -130,8 +119,8 @@ def get_all_manga() -> List[Manga]:
     Get all manga in the database
     :return: A List of Manga objects representing all manga titles
     """
-    q = '''SELECT m.manga_id, m.title, m.author, m.illustrator, m.year, m.chapters, m.genre_id, m.rating
-           FROM mangas m JOIN genres g ON g.genre_id = m.genre_id'''
+    q = '''SELECT m.manga_id, m.title, m.author, m.illustrator, m.year, m.chapters, m.rating
+           FROM mangas m'''
 
     with closing(conn.cursor()) as c:
         c.execute(q)
@@ -143,38 +132,6 @@ def get_all_manga() -> List[Manga]:
     return mangas
 
 
-def get_all_genres() -> List[Genre]:
-    """
-    Get all genres in the database
-    :return: A list of Genre objects
-    """
-    q = '''SELECT genre_id, name FROM genres '''
-    with closing(conn.cursor()) as c:
-        c.execute(q)
-        results = c.fetchall()
-
-    genres: List[Genre] = []
-    for r in results:
-        genres.append(make_genre(r))
-    return genres
-
-
-def get_genre(genre_id: int) -> Optional[Genre]:
-    """
-    Get a genre given a specific genre id
-    :param genre_id: An int value representing the genre_id of a Genre object
-    :return: An optional of a Genre object, or None if the genre_id does not exist
-    """
-    q = '''SELECT genre_id, name FROM genres WHERE genre_id = ?'''
-    with closing(conn.cursor()) as c:
-        c.execute(q, (genre_id,))
-        genre_row: Any = c.fetchone()
-        if genre_row:
-            return make_genre(genre_row)
-        else:
-            return None
-
-
 def add_anime (anime: Anime) -> None:
     """
     Add a single anime to the database. Includes validation of required fields that do not have a default value as
@@ -184,19 +141,6 @@ def add_anime (anime: Anime) -> None:
     :return: None
     :raises: A SQLite Database error if insertion fails.
     """
-    # account for that the genre id is passed as an int however is evaluated as a Genre object with an id or genre_id
-    if getattr(anime, "genre", None) is None:
-        raise ValueError("anime genre is required")
-
-    genre_value = anime.genre
-    if isinstance(genre_value, int):
-        genre_id = genre_value
-    else:
-        genre_id = getattr(genre_value, "id", None) or getattr(genre_value, "genre_id", None)
-
-    if genre_id is None:
-        raise ValueError("drama genre is required")
-
     if not getattr(anime, "title", None):
         raise ValueError("anime title is required")
     if not getattr(anime, "year", None):
@@ -204,12 +148,11 @@ def add_anime (anime: Anime) -> None:
     if not getattr(anime, "seasons", None):
         raise ValueError("anime seasons is required")
 
-    s = '''INSERT INTO animes (title, year, seasons, genre_id, rating, rewatch_value, owned, manga_id, notes) 
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'''
+    s = '''INSERT INTO animes (title, year, seasons, rating, owned, notes) 
+           VALUES (?, ?, ?, ?, ?, ?)'''
     try:
         with closing(conn.cursor()) as c:
-            c.execute(s, (anime.title, anime.year, anime.seasons, anime.genre, anime.rating, anime.rewatch_value,
-                          anime.owned, anime.manga, anime.notes))
+            c.execute(s, (anime.title, anime.year, anime.seasons, anime.rating, anime.owned, anime.notes))
         conn.commit()
     except conn.DatabaseError as e:
         try:
@@ -229,19 +172,6 @@ def add_manga (manga: Manga) -> None:
     :return: None
     :raises: A SQLite Database error if insertion fails.
     """
-    # account for that the genre id is passed as an int however is evaluated as a Genre object with an id or genre_id
-    if getattr(manga, "genre", None) is None:
-        raise ValueError("manga genre is required")
-
-    genre_value = manga.genre
-    if isinstance(genre_value, int):
-        genre_id = genre_value
-    else:
-        genre_id = getattr(genre_value, "id", None) or getattr(genre_value, "genre_id", None)
-
-    if genre_id is None:
-        raise ValueError("manga genre is required")
-
     if not getattr(manga, "title", None):
         raise ValueError("anime title is required")
     if not getattr(manga, "year", None):
@@ -249,12 +179,12 @@ def add_manga (manga: Manga) -> None:
     if not getattr(manga, "chapters", None):
         raise ValueError("manga chapters is required")
 
-    s = '''INSERT INTO mangas (title, author, illustrator, year, chapters, genre_id, rating, owned, anime_id, notes) 
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'''
+    s = '''INSERT INTO mangas (title, author, illustrator, year, chapters, rating, owned, notes) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)'''
     try:
         with closing(conn.cursor()) as c:
-            c.execute(s, (manga.title, manga.author, manga.illustrator, manga.year, manga.chapters, manga.genre,
-                          manga.rating, manga.owned, manga.anime, manga.notes))
+            c.execute(s, (manga.title, manga.author, manga.illustrator, manga.year, manga.chapters,
+                          manga.rating, manga.owned, manga.notes))
         conn.commit()
     except conn.DatabaseError as e:
         try:
@@ -265,18 +195,20 @@ def add_manga (manga: Manga) -> None:
         raise
 
 
-def delete_anime(anime_id: int) -> None:
+def delete_anime(anime_id: int) -> Any:
     """
     Deletes a specific anime from the database performing a hard delete
     :param anime_id: anime_id of the specific anime
-    :return: None
+    :return: The number of rows affected or an exception
     :raises: A Database error if delete fails
     """
     s = '''DELETE FROM main.animes WHERE anime_id = ?'''
     try:
         with closing(conn.cursor()) as c:
             c.execute(s, (anime_id,))
+            rows_affected = c.rowcount
         conn.commit()
+        return rows_affected > 0
     except conn.DatabaseError as e:
         try:
             conn.rollback()
@@ -286,18 +218,20 @@ def delete_anime(anime_id: int) -> None:
         raise
 
 
-def delete_manga(manga_id: int) -> None:
+def delete_manga(manga_id: int) -> Any:
     """
     Deletes a specific manga from the database performing a hard delete
     :param manga_id: manga_id of the specific manga
-    :return: None
+    :return: The number of rows effected or an exception
     :raises: A Database error if delete fails
     """
     s = '''DELETE FROM main.mangas WHERE mangas.manga_id = ?'''
     try:
         with closing(conn.cursor()) as c:
             c.execute(s, (manga_id,))
+            rows_affected = c.rowcount
         conn.commit()
+        return rows_affected > 0
     except conn.DatabaseError as e:
         try:
             conn.rollback()
@@ -305,3 +239,31 @@ def delete_manga(manga_id: int) -> None:
             logging.exception("Failed to roll back transaction after delete failure")
         logging.exception(f"Failed to delete manga {e}")
         raise
+
+
+def validate_anime_data(title, year, seasons):
+    if not title or not title.strip():
+        return False, "Title is required"
+
+    if not year or not year.strip():
+        return False, "Year is required"
+
+    if not seasons or not seasons.strip():
+        return False, "Number of seasons is required"
+
+    # All validation passed
+    return True, ""
+
+
+def validate_manga_data(title, year, chapters):
+    if not title or not title.strip():
+        return False, "Title is required"
+
+    if not year or not year.strip():
+        return False, "Year is required"
+
+    if not chapters or not chapters.strip():
+        return False, "Number of chapters is required"
+
+    # All validation passed
+    return True, ""

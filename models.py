@@ -14,12 +14,9 @@ class Anime:
     id: int = 0
     title: str = ""
     year: str = ""
-    seasons: int = 0
-    genre: Genre = None
+    seasons: str = ""
     rating: float = 0.0
-    rewatch_value: int = 0
-    owned: bool = False
-    manga: Manga = None
+    owned: str = ""
     notes: str = ""
 
 
@@ -30,16 +27,8 @@ class Manga:
     author: str = ""
     illustrator: str = ""
     year: str = ""
-    chapters: int = 0
-    genre: Genre = None
+    chapters: str = ""
     rating: float = 0.0
-    owned: bool = False
-    anime: Anime = None
+    owned: str = ""
     notes: str = ""
-
-
-@dataclass
-class Genre:
-    id: int = 0
-    name: str = ""
 
