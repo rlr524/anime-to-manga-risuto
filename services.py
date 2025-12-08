@@ -107,28 +107,40 @@ def get_manga(manga_id: int) -> Optional[Manga]:
             return None
 
 
-
-
-
-
-def get_all_dramas() -> List[Drama]:
+def get_all_anime() -> List[Anime]:
     """
-    Get all dramas in the database
-    :return: A List of Drama objects representing all Dramas where the deleted flag is not True
-    Note: This can be debated as to if the logic for the deleted flag should be applied here or in the UI. For the
-    sake of keeping the assignment fairly simple, I applied it here.
+    Get all anime in the database
+    :return: A List of Anime objects representing all Anime
     """
-    q = '''SELECT d.drama_id, d.title, d.year, d.episodes, d.genre_id, g.name, d.deleted 
-           FROM dramas d JOIN genres g ON g.genre_id = d.genre_id
-           WHERE d.deleted <> true'''
+    q = '''SELECT a.anime_id, a.title, a.year, a.seasons, a.genre_id, a.rating, a.owned 
+           FROM animes a JOIN genres g ON g.genre_id = a.genre_id'''
+
     with closing(conn.cursor()) as c:
         c.execute(q)
         results = c.fetchall()
 
-    dramas: List[Drama] = []
+    animes: List[Anime] = []
     for r in results:
-        dramas.append(make_drama(r))
-    return  dramas
+        animes.append(make_anime(r))
+    return animes
+
+
+def get_all_manga() -> List[Manga]:
+    """
+    Get all manga in the database
+    :return: A List of Manga objects representing all manga titles
+    """
+    q = '''SELECT m.manga_id, m.title, m.author, m.illustrator, m.year, m.chapters, m.genre_id, m.rating
+           FROM mangas m JOIN genres g ON g.genre_id = m.genre_id'''
+
+    with closing(conn.cursor()) as c:
+        c.execute(q)
+        results = c.fetchall()
+
+    mangas: List[Manga] = []
+    for r in results:
+        mangas.append(make_manga(r))
+    return mangas
 
 
 def get_all_genres() -> List[Genre]:
@@ -163,100 +175,133 @@ def get_genre(genre_id: int) -> Optional[Genre]:
             return None
 
 
-def get_dramas_by_genre(genre_id: int) -> List[Drama]:
+def add_anime (anime: Anime) -> None:
     """
-    Gets all dramas given a specific genre
-    :param genre_id: An int value representing the genre_id of a Genre object
-    :return: A List of Drama objects
-    """
-    q = '''SELECT d.drama_id, d.title, d.year, d.episodes, d.genre_id, g.name, d.deleted
-           FROM dramas d JOIN genres g ON g.genre_id = d.genre_id
-           WHERE d.genre_id = ? AND d.deleted <> true'''
-    with closing(conn.cursor()) as c:
-        c.execute(q, (genre_id,))
-        results: List[Any] = c.fetchall()
-
-    return make_drama_list(results)
-
-
-def get_dramas_by_year(year: str) -> List[Drama]:
-    """
-    Gets all dramas given a specific year
-    :param year: A string value representing a four digit year
-    :return: A List of Drama objects
-    """
-    q = '''SELECT d.drama_id, d.title, d.year, d.episodes, d.genre_id, g.name, d.deleted
-           FROM dramas d JOIN genres g ON g.genre_id = d.genre_id
-           WHERE d.year = ? AND d.deleted <> true'''
-    with closing(conn.cursor()) as c:
-        c.execute(q, (year,))
-        results: List[Any] = c.fetchall()
-
-    return make_drama_list(results)
-
-
-def add_drama(drama: Drama) -> None:
-    """
-    Add a single drama to the database. Includes validation of required fields that do not have a default value as
+    Add a single anime to the database. Includes validation of required fields that do not have a default value as
     well as error handling for database transaction commit errors. This error handling is necessary on any function
     that performs a transaction commit on the database in order to comply with ACID assurance.
-    :param drama: A Drama object to insert
+    :param anime: An Anime object to insert
     :return: None
-    :raises: A SQLite Database error if insertion fails. If this were a production application, I would include
-    methods for this error handling in the Database class as it is specific to SQLite3.
+    :raises: A SQLite Database error if insertion fails.
     """
     # account for that the genre id is passed as an int however is evaluated as a Genre object with an id or genre_id
-    if getattr(drama, "genre", None) is None:
-        raise ValueError("drama genre id is required")
+    if getattr(anime, "genre", None) is None:
+        raise ValueError("anime genre is required")
 
-    genre_value = drama.genre
+    genre_value = anime.genre
     if isinstance(genre_value, int):
         genre_id = genre_value
     else:
         genre_id = getattr(genre_value, "id", None) or getattr(genre_value, "genre_id", None)
 
     if genre_id is None:
-        raise ValueError("drama genre id is required")
+        raise ValueError("drama genre is required")
 
-    if not getattr(drama, "title", None):
-        raise ValueError("drama title is required")
-    if not getattr(drama, "year", None):
-        raise ValueError("drama year is required")
-    if not getattr(drama, "episodes", None):
-        raise ValueError("drama episodes is required")
+    if not getattr(anime, "title", None):
+        raise ValueError("anime title is required")
+    if not getattr(anime, "year", None):
+        raise ValueError("anime year is required")
+    if not getattr(anime, "seasons", None):
+        raise ValueError("anime seasons is required")
 
-    s = '''INSERT INTO dramas (title, year, episodes, genre_id, deleted) VALUES (?, ?, ?, ?, ?)'''
+    s = '''INSERT INTO animes (title, year, seasons, genre_id, rating, rewatch_value, owned, manga_id, notes) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'''
     try:
         with closing(conn.cursor()) as c:
-            c.execute(s, (drama.title, drama.year, drama.episodes, drama.genre.id, getattr(drama, "deleted", False)))
+            c.execute(s, (anime.title, anime.year, anime.seasons, anime.genre, anime.rating, anime.rewatch_value,
+                          anime.owned, anime.manga, anime.notes))
         conn.commit()
     except conn.DatabaseError as e:
         try:
             conn.rollback()
         except conn.OperationalError:
             logging.exception("Failed to roll back transaction after insert failure")
-        logging.exception(f"Failed to insert drama {e}")
+        logging.exception(f"Failed to insert anime {e}")
         raise
 
 
-def delete_drama(drama_id: int) -> None:
+def add_manga (manga: Manga) -> None:
     """
-    Perform a soft delete by flagging a single drama as deleted. Includes error handling for database transaction
-    commit errors. This error handling is necessary on any function that performs a transaction commit on the
-    database in order to comply with ACID assurance.
-    :param drama_id: The drama_id of the intended drama
+    Add a single manga to the database. Includes validation of required fields that do not have a default value as
+    well as error handling for database transaction commit errors. This error handling is necessary on any function
+    that performs a transaction commit on the database in order to comply with ACID assurance.
+    :param manga: A Manga object to insert
     :return: None
-    :raises: A Database error if insertion fails
+    :raises: A SQLite Database error if insertion fails.
     """
-    s = '''UPDATE dramas SET deleted = true WHERE drama_id = ?'''
+    # account for that the genre id is passed as an int however is evaluated as a Genre object with an id or genre_id
+    if getattr(manga, "genre", None) is None:
+        raise ValueError("manga genre is required")
+
+    genre_value = manga.genre
+    if isinstance(genre_value, int):
+        genre_id = genre_value
+    else:
+        genre_id = getattr(genre_value, "id", None) or getattr(genre_value, "genre_id", None)
+
+    if genre_id is None:
+        raise ValueError("manga genre is required")
+
+    if not getattr(manga, "title", None):
+        raise ValueError("anime title is required")
+    if not getattr(manga, "year", None):
+        raise ValueError("anime year is required")
+    if not getattr(manga, "chapters", None):
+        raise ValueError("manga chapters is required")
+
+    s = '''INSERT INTO mangas (title, author, illustrator, year, chapters, genre_id, rating, owned, anime_id, notes) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'''
     try:
         with closing(conn.cursor()) as c:
-            c.execute(s, (drama_id,))
+            c.execute(s, (manga.title, manga.author, manga.illustrator, manga.year, manga.chapters, manga.genre,
+                          manga.rating, manga.owned, manga.anime, manga.notes))
+        conn.commit()
+    except conn.DatabaseError as e:
+        try:
+            conn.rollback()
+        except conn.OperationalError:
+            logging.exception("Failed to roll back transaction after insert failure")
+        logging.exception(f"Failed to insert manga {e}")
+        raise
+
+
+def delete_anime(anime_id: int) -> None:
+    """
+    Deletes a specific anime from the database performing a hard delete
+    :param anime_id: anime_id of the specific anime
+    :return: None
+    :raises: A Database error if delete fails
+    """
+    s = '''DELETE FROM main.animes WHERE anime_id = ?'''
+    try:
+        with closing(conn.cursor()) as c:
+            c.execute(s, (anime_id,))
         conn.commit()
     except conn.DatabaseError as e:
         try:
             conn.rollback()
         except conn.OperationalError:
             logging.exception("Failed to roll back transaction after delete failure")
-        logging.exception(f"Failed to delete drama {e}")
+        logging.exception(f"Failed to delete anime {e}")
+        raise
+
+
+def delete_manga(manga_id: int) -> None:
+    """
+    Deletes a specific manga from the database performing a hard delete
+    :param manga_id: manga_id of the specific manga
+    :return: None
+    :raises: A Database error if delete fails
+    """
+    s = '''DELETE FROM main.mangas WHERE mangas.manga_id = ?'''
+    try:
+        with closing(conn.cursor()) as c:
+            c.execute(s, (manga_id,))
+        conn.commit()
+    except conn.DatabaseError as e:
+        try:
+            conn.rollback()
+        except conn.OperationalError:
+            logging.exception("Failed to roll back transaction after delete failure")
+        logging.exception(f"Failed to delete manga {e}")
         raise
