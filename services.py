@@ -16,50 +16,6 @@ from typing import Any, List, Optional
 db = Database()
 conn = db.connect()
 
-def make_anime(row: Any) -> Anime:
-    """
-    Creates a new Anime instance given input from a SQL query
-    :param row: A parameter of type Any that is passed to the initializer of an Anime instance
-    :return: An instance of the Anime class
-    """
-    return Anime(row["anime_id"], row["title"], row["year"], row["seasons"], row["rating"],
-                 row["owned"], row["notes"])
-
-
-def make_manga(row: Any) -> Manga:
-    """
-    Creates a new Manga instance given input from a SQL query
-    :param row: A parameter of type Any that is passed to the initializer of a Manga instance
-    :return: An instance of the Manga class
-    """
-    return Manga(row["manga_id"], row["title"], row["author"], row["illustrator"], row["year"], row["chapters"],
-                 row["rating"], row["owned"], row["notes"])
-
-
-def make_anime_list(anime_results: Any) -> List[Anime]:
-    """
-    Creates a List of Anime instances given input from a SQL query
-    :param anime_results: A parameter of type Any that represents a List of anime rows from a DB query
-    :return: A List of instances of the Anime class
-    """
-    anime: List[Anime] = []
-    for r in anime_results:
-        anime.append(make_anime(r))
-    return anime
-
-
-def make_manga_list(manga_results: Any) -> List[Manga]:
-    """
-    Creates a List of Manga instances given input from a SQL query
-    :param manga_results: A parameter of type Any that represents a List of manga rows from a DB query
-    :return: A List of instances of the Manga class
-    """
-    mangas: List[Manga] = []
-    for r in manga_results:
-        mangas.append(make_manga(r))
-    return mangas
-
-
 def get_anime(anime_id: int) -> Optional[Anime]:
     """
     Get a single anime given an anime's id
@@ -71,9 +27,9 @@ def get_anime(anime_id: int) -> Optional[Anime]:
            WHERE a.anime_id = ?'''
     with closing(conn.cursor()) as c:
         c.execute(q, (anime_id,))
-        anime_row: Any = c.fetchone()
-        if anime_row:
-            return make_anime(anime_row)
+        anime: Any = c.fetchone()
+        if anime:
+            return anime
         else:
             return None
 
@@ -89,9 +45,9 @@ def get_manga(manga_id: int) -> Optional[Manga]:
            WHERE m.manga_id = ?'''
     with closing(conn.cursor()) as c:
         c.execute(q, (manga_id,))
-        manga_row: Any = c.fetchone()
-        if manga_row:
-            return make_manga(manga_row)
+        manga: Any = c.fetchone()
+        if manga:
+            return manga
         else:
             return None
 
@@ -106,11 +62,8 @@ def get_all_anime() -> List[Anime]:
 
     with closing(conn.cursor()) as c:
         c.execute(q)
-        results = c.fetchall()
+        animes = c.fetchall()
 
-    animes: List[Anime] = []
-    for r in results:
-        animes.append(make_anime(r))
     return animes
 
 
@@ -119,16 +72,13 @@ def get_all_manga() -> List[Manga]:
     Get all manga in the database
     :return: A List of Manga objects representing all manga titles
     """
-    q = '''SELECT m.manga_id, m.title, m.author, m.illustrator, m.year, m.chapters, m.rating
+    q = '''SELECT m.manga_id, m.title, m.author, m.illustrator, m.year, m.chapters, m.rating, m.owned
            FROM mangas m'''
 
     with closing(conn.cursor()) as c:
         c.execute(q)
-        results = c.fetchall()
+        mangas = c.fetchall()
 
-    mangas: List[Manga] = []
-    for r in results:
-        mangas.append(make_manga(r))
     return mangas
 
 

@@ -10,17 +10,18 @@ ui.py - All logic for the user interface using tkinter
 import tkinter as tk
 from tkinter import messagebox
 import services as svc
-from database import Database
 from models import Anime, Manga
 
 class AnimeToMangaUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Anime to Manga Risuto: Your Anime and Manga List")
-        self.root.geometry("900x900")
+        self.root.geometry("1400x1000")
 
-        db = Database()
-        db.connect()
+        self.create_menu()
+        self.create_layout()
+
+        self.refresh_list()
 
 
     def create_menu(self):
@@ -63,6 +64,19 @@ class AnimeToMangaUI:
         button_frame = tk.Frame(main_frame)
         button_frame.pack(pady=10)
 
+        tk.Button(button_frame, text="Add Anime",
+                 command=self.add_anime, width=10).grid(row=0, column=0, padx=5)
+        tk.Button(button_frame, text="Add Manga",
+                 command=self.add_manga, width=10).grid(row=1, column=0, padx=5)
+        tk.Button(button_frame, text="View Anime",
+                 command=self.view_anime, width=10).grid(row=0, column=1, padx=5)
+        tk.Button(button_frame, text="View Manga ",
+                 command=self.view_manga, width=10).grid(row=1, column=1, padx=5)
+        tk.Button(button_frame, text="Delete Anime",
+                 command=self.delete_anime, width=10).grid(row=0, column=2, padx=5)
+        tk.Button(button_frame, text="Delete Manga ",
+                 command=self.delete_manga, width=10).grid(row=1, column=2, padx=5)
+
 
     def add_anime(self):
             # Create popup window
@@ -100,7 +114,7 @@ class AnimeToMangaUI:
 
             tk.Label(add_window, text="Notes:").grid(
                 row=5, column=0, sticky='ne', padx=5, pady=5)
-            notes_text = tk.Text(add_window, width=30)
+            notes_text = tk.Text(add_window, height=10, width=30)
             notes_text.grid(row=5, column=1, padx=5, pady=5)
 
             def save_anime():
@@ -123,7 +137,7 @@ class AnimeToMangaUI:
                 svc.add_anime(new_anime)
 
                 # Show success message
-                messagebox.showinfo("Success",f"Anime added successfully!\nID: {id}")
+                messagebox.showinfo("Success",f"Anime added successfully!\nTitle: {title}")
 
                 # Close the popup window
                 add_window.destroy()
@@ -187,7 +201,7 @@ class AnimeToMangaUI:
 
             tk.Label(add_window, text="Notes:").grid(
                 row=7, column=0, sticky='ne', padx=5, pady=5)
-            notes_text = tk.Text(add_window, width=30)
+            notes_text = tk.Text(add_window, height=10, width=30)
             notes_text.grid(row=7, column=1, padx=5, pady=5)
 
             def save_manga():
@@ -212,7 +226,7 @@ class AnimeToMangaUI:
                 svc.add_manga(new_manga)
 
                 # Show success message
-                messagebox.showinfo("Success",f"Manga added successfully!\nID: {id}")
+                messagebox.showinfo("Success",f"Manga added successfully!\nTitle: {title}")
 
                 # Close the popup window
                 add_window.destroy()
@@ -262,9 +276,7 @@ class AnimeToMangaUI:
     Seasons: {seasons}
     Rating: {rating}
     Owned?: {owned}
-
-    Notes:
-    {notes if notes else '(no notes)'}
+    Notes: {notes}
             """
 
         # Display as label
@@ -311,9 +323,7 @@ class AnimeToMangaUI:
     Chapters: {chapters}
     Rating: {rating}
     Owned?: {owned}
-
-    Notes:
-    {notes if notes else '(no notes)'}
+    Notes: {notes}
             """
 
         # Display as label
@@ -384,12 +394,28 @@ class AnimeToMangaUI:
     def refresh_list(self):
         self.listbox.delete(0, tk.END)
 
-        anime = svc.get_all_anime()
-        for a in anime:
-            anime_id, title, year, seasons = anime
+        animes = svc.get_all_anime()
+        mangas = svc.get_all_manga()
+
+        self.listbox.insert(tk.END, "My Anime List")
+        self.listbox.insert(tk.END, "")
+        for anime in animes:
+            anime_id, title, year, seasons, rating, owned = anime
 
             # Format for display
-            display_text = f"{anime_id} - {title} ({year}) - {seasons} seasons"
+            display_text = f"{anime_id} - {title} ({year}) | {seasons} seasons | {rating} rating | is owned: {owned}"
+
+            # Insert into listbox
+            self.listbox.insert(tk.END, display_text)
+
+        self.listbox.insert(tk.END, "")
+        self.listbox.insert(tk.END, "My Manga List")
+        self.listbox.insert(tk.END, "")
+        for manga in mangas:
+            manga_id, title, author, illustrator, year, chapters, rating, owned = manga
+
+            # Format for display
+            display_text = f"{manga_id} - {title} ({year}) | by {author} | illustrations by {illustrator} | {chapters} seasons | {rating} rating | is owned: {owned}"
 
             # Insert into listbox
             self.listbox.insert(tk.END, display_text)
