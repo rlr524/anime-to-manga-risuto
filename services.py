@@ -191,7 +191,12 @@ def delete_manga(manga_id: int) -> Any:
         raise
 
 
-def validate_anime_data(title, year, seasons):
+def validate_anime_data(title, year, seasons) -> tuple[bool,str]:
+    """
+    Performs validation checks on an anime
+    :param: title, year, seasons
+    :return: A tuple containing a boolean representation of if the data is valid and a message
+    """
     if not title or not title.strip():
         return False, "Title is required"
 
@@ -205,7 +210,12 @@ def validate_anime_data(title, year, seasons):
     return True, ""
 
 
-def validate_manga_data(title, year, chapters):
+def validate_manga_data(title, year, chapters) -> tuple[bool,str]:
+    """
+    Performs validation checks on a manga
+    :param: title, year, chapters
+    :return: A tuple containing a boolean representation of if the data is valid and a message
+    """
     if not title or not title.strip():
         return False, "Title is required"
 
